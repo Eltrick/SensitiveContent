@@ -21,10 +21,11 @@ void SetECDHKey(bool generate)
     {
         ECDiffieHellmanObject = ECDiffieHellman.Create();
 
-        string namePrefix = DateTime.Now.ToString(FORMAT);
-        File.WriteAllText($"{keyDirectory.FullName}\\ecdh-{namePrefix}-private.pem", ECDiffieHellmanObject.ExportECPrivateKeyPem());
-        File.WriteAllText($"{keyDirectory.FullName}\\ecdh-{namePrefix}-public.pem", ECDiffieHellmanObject.ExportSubjectPublicKeyInfoPem());
-        Console.WriteLine($"Saved to {keyDirectory.FullName}\\ecdh-{namePrefix}-public.pem");
+        Guid guid = Guid.NewGuid();
+        string date = DateTime.Now.ToString(FORMAT);
+        File.WriteAllText($"{keyDirectory.FullName}\\ecdh-{date}-{guid}-private.pem", ECDiffieHellmanObject.ExportECPrivateKeyPem());
+        File.WriteAllText($"{keyDirectory.FullName}\\ecdh-{date}-{guid}-public.pem", ECDiffieHellmanObject.ExportSubjectPublicKeyInfoPem());
+        Console.WriteLine($"Saved to {keyDirectory.FullName}\\ecdh-{date}-{guid}-public.pem");
         Console.ReadKey();
         return;
     }
@@ -52,10 +53,11 @@ void SetRsaKey(bool generate)
     {
         RsaObject = RSA.Create(4096);
 
-        string namePrefix = DateTime.Now.ToString(FORMAT);
-        File.WriteAllText($"{keyDirectory.FullName}\\rsa-{namePrefix}-private.pem", RsaObject.ExportRSAPrivateKeyPem());
-        File.WriteAllText($"{keyDirectory.FullName}\\rsa-{namePrefix}-public.pem", RsaObject.ExportRSAPublicKeyPem());
-        Console.WriteLine($"Saved to {keyDirectory.FullName}\\rsa-{namePrefix}-public.pem");
+        Guid guid = Guid.NewGuid();
+        string date = DateTime.Now.ToString(FORMAT);
+        File.WriteAllText($"{keyDirectory.FullName}\\rsa-{date}-{guid}-private.pem", RsaObject.ExportRSAPrivateKeyPem());
+        File.WriteAllText($"{keyDirectory.FullName}\\rsa-{date}-{guid}-public.pem", RsaObject.ExportRSAPublicKeyPem());
+        Console.WriteLine($"Saved to {keyDirectory.FullName}\\rsa-{date}-{guid}-public.pem");
         Console.ReadKey();
         return;
     }
