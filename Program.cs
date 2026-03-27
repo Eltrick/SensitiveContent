@@ -2,6 +2,7 @@
 using System.Text;
 
 const string FORMAT = "yyyy-MM-dd";
+const string KEY_FOLDER = "keys";
 
 Aes AesObject = Aes.Create();
 
@@ -10,17 +11,21 @@ RSAEncryptionPadding RsaPadding = RSAEncryptionPadding.OaepSHA256;
 
 ECDiffieHellman ECDiffieHellmanObject = ECDiffieHellman.Create();
 
+DirectoryInfo keyDirectory = new(KEY_FOLDER);
+if (!keyDirectory.Exists)
+    keyDirectory.Create();
+
 void SetECDHKey(bool generate)
 {
     if (generate)
     {
         ECDiffieHellmanObject = ECDiffieHellman.Create();
-        Console.Write("Path to save Diffie-Hellman public key: ");
-        string savePath = Console.ReadLine()!;
 
         string namePrefix = DateTime.Now.ToString(FORMAT);
-        File.WriteAllText(savePath + $"\\ecdh-{namePrefix}-private.pub", ECDiffieHellmanObject.ExportECPrivateKeyPem());
-        File.WriteAllText(savePath + $"\\ecdh-{namePrefix}-public.pub", ECDiffieHellmanObject.ExportSubjectPublicKeyInfoPem());
+        File.WriteAllText($"{keyDirectory.FullName}\\ecdh-{namePrefix}-private.pem", ECDiffieHellmanObject.ExportECPrivateKeyPem());
+        File.WriteAllText($"{keyDirectory.FullName}\\ecdh-{namePrefix}-public.pem", ECDiffieHellmanObject.ExportSubjectPublicKeyInfoPem());
+        Console.WriteLine($"Saved to {keyDirectory.FullName}\\ecdh-{namePrefix}-public.pem");
+        Console.ReadKey();
         return;
     }
 
@@ -47,12 +52,11 @@ void SetRsaKey(bool generate)
     {
         RsaObject = RSA.Create(4096);
 
-        Console.Write("Path to save RSA key pair: ");
-        string savePath = Console.ReadLine()!;
-
         string namePrefix = DateTime.Now.ToString(FORMAT);
-        File.WriteAllText(savePath + $"\\rsa-{namePrefix}-private.key", RsaObject.ExportRSAPrivateKeyPem());
-        File.WriteAllText(savePath + $"\\rsa-{namePrefix}-public.pub", RsaObject.ExportRSAPublicKeyPem());
+        File.WriteAllText($"{keyDirectory.FullName}\\rsa-{namePrefix}-private.pem", RsaObject.ExportRSAPrivateKeyPem());
+        File.WriteAllText($"{keyDirectory.FullName}\\rsa-{namePrefix}-public.pem", RsaObject.ExportRSAPublicKeyPem());
+        Console.WriteLine($"Saved to {keyDirectory.FullName}\\rsa-{namePrefix}-public.pem");
+        Console.ReadKey();
         return;
     }
 
@@ -74,7 +78,6 @@ void RsaCrypt(bool isEncrypt)
         try
         {
             AesObject.SetKey(RsaObject.Decrypt(data, RsaPadding));
-            Console.WriteLine(Convert.ToBase64String(AesObject.Key));
             Console.WriteLine("Key unwrap success.");
         }
         catch (CryptographicException)
@@ -163,11 +166,11 @@ void Menu()
         Console.WriteLine("7. Derive and set AES key using other party");
         Console.WriteLine("8. Generate and set AES key");
         Console.WriteLine("9. AES Encrypt");
-        Console.WriteLine("A. AES Decrypt");
+        Console.WriteLine("10. AES Decrypt");
         Console.WriteLine("0. Exit");
 
         Console.Write("Option: ");
-        option = "0123456789A".IndexOf(Console.ReadLine()!.ToUpper());
+        option = int.Parse(Console.ReadLine()!);
 
         switch (option)
         {
