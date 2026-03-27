@@ -1,12 +1,45 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
-using Newtonsoft.Json;
+
+const string FORMAT = "yyyy-MM-dd";
+
+Aes AesObject = Aes.Create();
 
 RSA RsaObject = RSA.Create(4096);
 RSAEncryptionPadding RsaPadding = RSAEncryptionPadding.OaepSHA256;
 
-Aes AesObject = Aes.Create();
-const string FORMAT = "yyyy-MM-dd";
+ECDiffieHellman ECDiffieHellmanObject = ECDiffieHellman.Create();
+
+void SetECDHKey(bool generate)
+{
+    if (generate)
+    {
+        ECDiffieHellmanObject = ECDiffieHellman.Create();
+        Console.Write("Path to save Diffie-Hellman public key: ");
+        string savePath = Console.ReadLine()!;
+
+        string namePrefix = DateTime.Now.ToString(FORMAT);
+        File.WriteAllText(savePath + $"\\ecdh-{namePrefix}-private.pub", ECDiffieHellmanObject.ExportECPrivateKeyPem());
+        File.WriteAllText(savePath + $"\\ecdh-{namePrefix}-public.pub", ECDiffieHellmanObject.ExportSubjectPublicKeyInfoPem());
+        return;
+    }
+
+    Console.Write("Path to Diffie-Hellman private key: ");
+    string ecPath = Console.ReadLine()!;
+
+    ECDiffieHellmanObject.ImportFromPem(File.ReadAllText(ecPath));
+}
+
+void GenerateAndSetKeyUsingDH()
+{
+    Console.Write("Path to other party's Public Key: ");
+    string pkPath = Console.ReadLine()!;
+
+    ECDiffieHellman otherPk = ECDiffieHellman.Create();
+    otherPk.ImportFromPem(File.ReadAllText(pkPath));
+
+    AesObject.SetKey(ECDiffieHellmanObject.DeriveKeyMaterial(otherPk.PublicKey));
+}
 
 void SetRsaKey(bool generate)
 {
@@ -18,10 +51,8 @@ void SetRsaKey(bool generate)
         string savePath = Console.ReadLine()!;
 
         string namePrefix = DateTime.Now.ToString(FORMAT);
-        File.WriteAllText(savePath + $"\\{namePrefix}-private.key", RsaObject.ExportRSAPrivateKeyPem());
-        File.WriteAllText(savePath + $"\\{namePrefix}-public.pub", RsaObject.ExportRSAPublicKeyPem());
-
-        RsaObject.ImportFromPem(RsaObject.ExportRSAPublicKeyPem());
+        File.WriteAllText(savePath + $"\\rsa-{namePrefix}-private.key", RsaObject.ExportRSAPrivateKeyPem());
+        File.WriteAllText(savePath + $"\\rsa-{namePrefix}-public.pub", RsaObject.ExportRSAPublicKeyPem());
         return;
     }
 
@@ -34,16 +65,16 @@ void SetRsaKey(bool generate)
 void RsaCrypt(bool isEncrypt)
 {
     if (isEncrypt)
-        Console.WriteLine($"CT: {Convert.ToHexString(RsaObject.Encrypt(AesObject.Key, RsaPadding))}");
+        Console.WriteLine($"CT: {Convert.ToBase64String(RsaObject.Encrypt(AesObject.Key, RsaPadding))}");
     else
     {
         Console.Write("Data: ");
-        byte[] data = Convert.FromHexString(Console.ReadLine()!);
+        byte[] data = Convert.FromBase64String(Console.ReadLine()!);
 
         try
         {
             AesObject.SetKey(RsaObject.Decrypt(data, RsaPadding));
-            Console.WriteLine(Convert.ToHexString(AesObject.Key));
+            Console.WriteLine(Convert.ToBase64String(AesObject.Key));
             Console.WriteLine("Key unwrap success.");
         }
         catch (CryptographicException)
@@ -68,22 +99,51 @@ void AesCrypt(bool isEncrypt)
     if (isEncrypt)
         AesObject.GenerateIV();
 
-    Console.Write("Data: ");
-    string data = Console.ReadLine()!;
+    Console.Write("0=Text, 1=File: ");
+    bool isFile = int.Parse(Console.ReadLine()!) == 1;
 
-    if (isEncrypt)
+    if (!isFile)
     {
-        byte[] d = AesObject.EncryptCbc(Encoding.UTF8.GetBytes(data), AesObject.IV);
-        Console.WriteLine($"CT: {Convert.ToHexString([.. AesObject.IV.Concat(d)])}");
+        Console.Write("Data: ");
+        string data = Console.ReadLine()!;
+
+        if (isEncrypt)
+        {
+            byte[] d = AesObject.EncryptCbc(Encoding.UTF8.GetBytes(data), AesObject.IV);
+            Console.WriteLine($"CT: {Convert.ToBase64String([.. AesObject.IV.Concat(d)])}");
+        }
+        else
+        {
+            byte[] enc = Convert.FromBase64String(data);
+            AesObject.IV = enc.AsSpan(0, 16).ToArray();
+            byte[] ct = enc.AsSpan(16).ToArray();
+
+            Console.WriteLine($"PT: {Encoding.UTF8.GetString(AesObject.DecryptCbc(ct, AesObject.IV))}");
+        }
     }
     else
     {
-        AesObject.IV = Convert.FromHexString(data.AsSpan(0, 32));
-        byte[] enc = Convert.FromHexString(data.AsSpan(32));
+        Console.Write("Input path: ");
+        byte[] input = File.ReadAllBytes(Console.ReadLine()!);
 
-        Console.WriteLine($"PT: {Encoding.UTF8.GetString(AesObject.DecryptCbc(enc, AesObject.IV))}");
+        Console.Write("Output path: ");
+        string outputPath = Console.ReadLine()!;
+
+        if (isEncrypt)
+        {
+            byte[] d = AesObject.EncryptCbc(input, AesObject.IV);
+            File.WriteAllBytes(outputPath, [.. AesObject.IV.Concat(d)]);
+            Console.WriteLine("Encrypted file written successfully");
+        }
+        else
+        {
+            AesObject.IV = input.AsSpan(0, 16).ToArray();
+            byte[] ct = input.AsSpan(16).ToArray();
+
+            File.WriteAllBytes(outputPath, AesObject.DecryptCbc(ct, AesObject.IV));
+            Console.WriteLine("Decrypted file written successfully");
+        }
     }
-
     Console.ReadKey();
 }
 
@@ -98,13 +158,16 @@ void Menu()
         Console.WriteLine("2. Set custom RSA key");
         Console.WriteLine("3. RSA Key Wrap");
         Console.WriteLine("4. RSA Key Unwrap and set AES key");
-        Console.WriteLine("5. Generate and set AES key");
-        Console.WriteLine("6. AES Encrypt");
-        Console.WriteLine("7. AES Decrypt");
+        Console.WriteLine("5. Generate, save, and set ECDH key");
+        Console.WriteLine("6. Set custom ECDH key");
+        Console.WriteLine("7. Derive and set AES key using other party");
+        Console.WriteLine("8. Generate and set AES key");
+        Console.WriteLine("9. AES Encrypt");
+        Console.WriteLine("A. AES Decrypt");
         Console.WriteLine("0. Exit");
 
         Console.Write("Option: ");
-        option = int.Parse(Console.ReadLine()!);
+        option = "0123456789A".IndexOf(Console.ReadLine()!.ToUpper());
 
         switch (option)
         {
@@ -121,12 +184,21 @@ void Menu()
                 RsaCrypt(isEncrypt: false);
                 break;
             case 5:
-                GenerateNewAesKey();
+                SetECDHKey(generate: true);
                 break;
             case 6:
-                AesCrypt(isEncrypt: true);
+                SetECDHKey(generate: false);
                 break;
             case 7:
+                GenerateAndSetKeyUsingDH();
+                break;
+            case 8:
+                GenerateNewAesKey();
+                break;
+            case 9:
+                AesCrypt(isEncrypt: true);
+                break;
+            case 10:
                 AesCrypt(isEncrypt: false);
                 break;
             default:
