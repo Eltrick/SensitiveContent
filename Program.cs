@@ -2,8 +2,7 @@
 using System.Text;
 using Newtonsoft.Json;
 
-RSA RsaObject = RSA.Create();
-bool IsPublic = true;
+RSA RsaObject = RSA.Create(4096);
 RSAEncryptionPadding RsaPadding = RSAEncryptionPadding.OaepSHA256;
 
 Aes AesObject = Aes.Create();
@@ -13,7 +12,7 @@ void SetRsaKey(bool generate)
 {
     if (generate)
     {
-        RsaObject = RSA.Create();
+        RsaObject = RSA.Create(4096);
 
         Console.Write("Path to save RSA key pair: ");
         string savePath = Console.ReadLine()!;
@@ -28,7 +27,6 @@ void SetRsaKey(bool generate)
 
     Console.Write("Path to RSA key: ");
     string rsaPath = Console.ReadLine()!;
-    IsPublic = rsaPath.EndsWith(".pub");
 
     RsaObject.ImportFromPem(File.ReadAllText(rsaPath));
 }
