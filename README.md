@@ -1,5 +1,10 @@
 # SensitiveContent
 A custom[-ish] combined implementation of Diffie-Hellman, AES and/or RSA to facilitate manual encrypted exchanges.
+## Requirements
+- To build, install .NET 10 SDK.
+- To run, install .NET 10 Desktop Runtime.
+
+Available at [.NET 10.0](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
 ## Expected common usage pipeline:
 1. Run the program, which generates an RSA and Elliptic Curve Diffie-Hellman key pair in the printed location.
 1.  1. If following the ECDH pipeline, send each other your public keys, and use them in conjunction with the private keys to derive AES keys for encryption

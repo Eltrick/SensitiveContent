@@ -84,7 +84,15 @@ void SetRsaKey(bool generate)
 void RsaCrypt(bool isEncrypt)
 {
     if (isEncrypt)
-        Console.WriteLine($"CT: {Convert.ToBase64String(RsaObject.Encrypt(AesObject.Key, RsaPadding))}");
+    {
+        Console.Write("Path to other party's public key: ");
+        string otherRsaPath = Console.ReadLine()!;
+
+        RSA otherRsa = RSA.Create();
+        otherRsa.ImportFromPem(File.ReadAllText(otherRsaPath));
+
+        Console.WriteLine($"CT: {Convert.ToBase64String(otherRsa.Encrypt(AesObject.Key, RsaPadding))}");
+    }
     else
     {
         Console.Write("Data: ");
