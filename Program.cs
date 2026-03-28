@@ -146,8 +146,8 @@ void AesCrypt(bool isEncrypt)
             {
                 byte[] enc = Convert.FromBase64String(data);
                 AesObject.IV = enc.AsSpan(0, AesObject.IV.Length).ToArray();
-                byte[] ct = enc.AsSpan(AesObject.IV.Length, enc.Length - Hmac.HashSize / 8).ToArray();
-                byte[] mac = enc.AsSpan(enc.Length - Hmac.HashSize / 8).ToArray();
+                byte[] ct = enc.AsSpan(AesObject.IV.Length, enc.Length - AesObject.IV.Length - Hmac.HashSize / 8).ToArray();
+                byte[] mac = enc.AsSpan(AesObject.IV.Length + ct.Length).ToArray();
 
                 if (!Hmac.ComputeHash(ct).SequenceEqual(mac))
                 {
@@ -182,8 +182,8 @@ void AesCrypt(bool isEncrypt)
         else
         {
             AesObject.IV = input.AsSpan(0, AesObject.IV.Length).ToArray();
-            byte[] ct = input.AsSpan(AesObject.IV.Length, input.Length - Hmac.HashSize / 8).ToArray();
-            byte[] mac = input.AsSpan(input.Length - Hmac.HashSize / 8).ToArray();
+            byte[] ct = input.AsSpan(AesObject.IV.Length, input.Length - AesObject.IV.Length - Hmac.HashSize / 8).ToArray();
+            byte[] mac = input.AsSpan(AesObject.IV.Length + ct.Length).ToArray();
 
             if (!Hmac.ComputeHash(ct).SequenceEqual(mac))
             {
