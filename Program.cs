@@ -5,6 +5,7 @@ const string FORMAT = "yyyy-MM-dd";
 const string KEY_FOLDER = "keys";
 
 Aes AesObject = Aes.Create();
+HMACSHA256 hmac = new(AesObject.Key);
 
 RSA RsaObject;
 RSAEncryptionPadding RsaPadding = RSAEncryptionPadding.OaepSHA256;
@@ -106,6 +107,7 @@ void RsaCrypt(bool isEncrypt)
 void GenerateNewAesKey()
 {
     AesObject.GenerateKey();
+    hmac = new(AesObject.Key);
     Console.WriteLine("AES key generation success.");
     Console.ReadKey();
     return;
@@ -127,15 +129,31 @@ void AesCrypt(bool isEncrypt)
         if (isEncrypt)
         {
             byte[] d = AesObject.EncryptCbc(Encoding.UTF8.GetBytes(data), AesObject.IV);
-            Console.WriteLine($"CT: {Convert.ToBase64String([.. AesObject.IV.Concat(d)])}");
+            byte[] mac = hmac.ComputeHash(d);
+            Console.WriteLine($"CT: {Convert.ToBase64String([.. AesObject.IV.Concat(d).Concat(mac)])}");
         }
         else
         {
-            byte[] enc = Convert.FromBase64String(data);
-            AesObject.IV = enc.AsSpan(0, 16).ToArray();
-            byte[] ct = enc.AsSpan(16).ToArray();
+            try
+            {
+                byte[] enc = Convert.FromBase64String(data);
+                AesObject.IV = enc.AsSpan(0, AesObject.IV.Length).ToArray();
+                byte[] ct = enc.AsSpan(AesObject.IV.Length, enc.Length - hmac.HashSize / 8).ToArray();
+                byte[] mac = enc.AsSpan(enc.Length - hmac.HashSize / 8).ToArray();
 
-            Console.WriteLine($"PT: {Encoding.UTF8.GetString(AesObject.DecryptCbc(ct, AesObject.IV))}");
+                if (!hmac.ComputeHash(ct).SequenceEqual(mac))
+                {
+                    Console.WriteLine("Ciphertext has been tampered with");
+                    Console.ReadKey();
+                    return;
+                }
+
+                Console.WriteLine($"PT: {Encoding.UTF8.GetString(AesObject.DecryptCbc(ct, AesObject.IV))}");
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Decryption failure");
+            }
         }
     }
     else
@@ -149,16 +167,32 @@ void AesCrypt(bool isEncrypt)
         if (isEncrypt)
         {
             byte[] d = AesObject.EncryptCbc(input, AesObject.IV);
-            File.WriteAllBytes(outputPath, [.. AesObject.IV.Concat(d)]);
+            byte[] mac = hmac.ComputeHash(d);
+            File.WriteAllBytes(outputPath, [.. AesObject.IV.Concat(d).Concat(mac)]);
             Console.WriteLine("Encrypted file written successfully");
         }
         else
         {
-            AesObject.IV = input.AsSpan(0, 16).ToArray();
-            byte[] ct = input.AsSpan(16).ToArray();
+            AesObject.IV = input.AsSpan(0, AesObject.IV.Length).ToArray();
+            byte[] ct = input.AsSpan(AesObject.IV.Length, input.Length - hmac.HashSize / 8).ToArray();
+            byte[] mac = input.AsSpan(input.Length - hmac.HashSize / 8).ToArray();
 
-            File.WriteAllBytes(outputPath, AesObject.DecryptCbc(ct, AesObject.IV));
-            Console.WriteLine("Decrypted file written successfully");
+            if (!hmac.ComputeHash(ct).SequenceEqual(mac))
+            {
+                Console.WriteLine("Ciphertext has been tampered with");
+                Console.ReadKey();
+                return;
+            }
+
+            try
+            {
+                File.WriteAllBytes(outputPath, AesObject.DecryptCbc(ct, AesObject.IV));
+                Console.WriteLine("Decrypted file written successfully");
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Something bad occurred");
+            }
         }
     }
     Console.ReadKey();
@@ -171,16 +205,16 @@ void Menu()
     do
     {
         Console.Clear();
-        Console.WriteLine("1. Generate, save, and set RSA key");
-        Console.WriteLine("2. Set custom RSA key");
-        Console.WriteLine("3. RSA Key Wrap");
-        Console.WriteLine("4. RSA Key Unwrap and set AES key");
-        Console.WriteLine("5. Generate, save, and set ECDH key");
-        Console.WriteLine("6. Set custom ECDH key");
-        Console.WriteLine("7. Derive and set AES key using other party");
+        Console.WriteLine("1. AES Encrypt");
+        Console.WriteLine("2. AES Decrypt");
+        Console.WriteLine("3. Derive and set AES key using other party");
+        Console.WriteLine("4. Generate, save, and set ECDH key");
+        Console.WriteLine("5. Generate, save, and set RSA key");
+        Console.WriteLine("6. RSA Key Wrap");
+        Console.WriteLine("7. RSA Key Unwrap and set AES key");
         Console.WriteLine("8. Generate and set AES key");
-        Console.WriteLine("9. AES Encrypt");
-        Console.WriteLine("10. AES Decrypt");
+        Console.WriteLine("9. Set custom ECDH key");
+        Console.WriteLine("10. Set custom RSA key");
         Console.WriteLine("0. Exit");
 
         Console.Write("Option: ");
@@ -189,34 +223,34 @@ void Menu()
         switch (option)
         {
             case 1:
-                SetRsaKey(generate: true);
+                AesCrypt(isEncrypt: true);
                 break;
             case 2:
-                SetRsaKey(generate: false);
+                AesCrypt(isEncrypt: false);
                 break;
             case 3:
-                RsaCrypt(isEncrypt: true);
+                GenerateAndSetKeyUsingDH();
                 break;
             case 4:
-                RsaCrypt(isEncrypt: false);
-                break;
-            case 5:
                 SetECDHKey(generate: true);
                 break;
+            case 5:
+                SetRsaKey(generate: true);
+                break;
             case 6:
-                SetECDHKey(generate: false);
+                RsaCrypt(isEncrypt: true);
                 break;
             case 7:
-                GenerateAndSetKeyUsingDH();
+                RsaCrypt(isEncrypt: false);
                 break;
             case 8:
                 GenerateNewAesKey();
                 break;
             case 9:
-                AesCrypt(isEncrypt: true);
+                SetECDHKey(generate: false);
                 break;
             case 10:
-                AesCrypt(isEncrypt: false);
+                SetRsaKey(generate: false);
                 break;
             default:
                 break;
