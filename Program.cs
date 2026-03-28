@@ -6,10 +6,10 @@ const string KEY_FOLDER = "keys";
 
 Aes AesObject = Aes.Create();
 
-RSA RsaObject = RSA.Create(4096);
+RSA RsaObject;
 RSAEncryptionPadding RsaPadding = RSAEncryptionPadding.OaepSHA256;
 
-ECDiffieHellman ECDiffieHellmanObject = ECDiffieHellman.Create();
+ECDiffieHellman ECDiffieHellmanObject;
 
 DirectoryInfo keyDirectory = new(KEY_FOLDER);
 if (!keyDirectory.Exists)
