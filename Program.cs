@@ -5,16 +5,16 @@ const string FORMAT = "yyyy-MM-dd";
 const string KEY_FOLDER = "keys";
 
 Aes AesObject = Aes.Create();
-HMACSHA256 hmac = new(AesObject.Key);
+HMACSHA256 Hmac = new(AesObject.Key);
 
 RSA RsaObject;
 RSAEncryptionPadding RsaPadding = RSAEncryptionPadding.OaepSHA256;
 
 ECDiffieHellman ECDiffieHellmanObject;
 
-DirectoryInfo keyDirectory = new(KEY_FOLDER);
-if (!keyDirectory.Exists)
-    keyDirectory.Create();
+DirectoryInfo KeyDirectory = new(KEY_FOLDER);
+if (!KeyDirectory.Exists)
+    KeyDirectory.Create();
 
 void GenerateECDHKey(bool wait = true)
 {
@@ -22,9 +22,9 @@ void GenerateECDHKey(bool wait = true)
 
     Guid guid = Guid.NewGuid();
     string date = DateTime.Now.ToString(FORMAT);
-    File.WriteAllText($"{keyDirectory.FullName}\\ecdh-{date}-{guid}-private.pem", ECDiffieHellmanObject.ExportECPrivateKeyPem());
-    File.WriteAllText($"{keyDirectory.FullName}\\ecdh-{date}-{guid}-public.pem", ECDiffieHellmanObject.ExportSubjectPublicKeyInfoPem());
-    Console.WriteLine($"Saved to {keyDirectory.FullName}\\ecdh-{date}-{guid}-public.pem");
+    File.WriteAllText($"{KeyDirectory.FullName}\\ecdh-{date}-{guid}-private.pem", ECDiffieHellmanObject.ExportECPrivateKeyPem());
+    File.WriteAllText($"{KeyDirectory.FullName}\\ecdh-{date}-{guid}-public.pem", ECDiffieHellmanObject.ExportSubjectPublicKeyInfoPem());
+    Console.WriteLine($"Saved to {KeyDirectory.FullName}\\ecdh-{date}-{guid}-public.pem");
     if (wait)
         Console.ReadKey();
 }
@@ -60,9 +60,9 @@ void GenerateRSAKey(bool wait = true)
 
     Guid guid = Guid.NewGuid();
     string date = DateTime.Now.ToString(FORMAT);
-    File.WriteAllText($"{keyDirectory.FullName}\\rsa-{date}-{guid}-private.pem", RsaObject.ExportRSAPrivateKeyPem());
-    File.WriteAllText($"{keyDirectory.FullName}\\rsa-{date}-{guid}-public.pem", RsaObject.ExportRSAPublicKeyPem());
-    Console.WriteLine($"Saved to {keyDirectory.FullName}\\rsa-{date}-{guid}-public.pem");
+    File.WriteAllText($"{KeyDirectory.FullName}\\rsa-{date}-{guid}-private.pem", RsaObject.ExportRSAPrivateKeyPem());
+    File.WriteAllText($"{KeyDirectory.FullName}\\rsa-{date}-{guid}-public.pem", RsaObject.ExportRSAPublicKeyPem());
+    Console.WriteLine($"Saved to {KeyDirectory.FullName}\\rsa-{date}-{guid}-public.pem");
     if (wait)
         Console.ReadKey();
 }
@@ -107,7 +107,7 @@ void RsaCrypt(bool isEncrypt)
 void GenerateNewAesKey()
 {
     AesObject.GenerateKey();
-    hmac = new(AesObject.Key);
+    Hmac = new(AesObject.Key);
     Console.WriteLine("AES key generation success.");
     Console.ReadKey();
     return;
@@ -129,7 +129,7 @@ void AesCrypt(bool isEncrypt)
         if (isEncrypt)
         {
             byte[] d = AesObject.EncryptCbc(Encoding.UTF8.GetBytes(data), AesObject.IV);
-            byte[] mac = hmac.ComputeHash(d);
+            byte[] mac = Hmac.ComputeHash(d);
             Console.WriteLine($"CT: {Convert.ToBase64String([.. AesObject.IV.Concat(d).Concat(mac)])}");
         }
         else
@@ -138,10 +138,10 @@ void AesCrypt(bool isEncrypt)
             {
                 byte[] enc = Convert.FromBase64String(data);
                 AesObject.IV = enc.AsSpan(0, AesObject.IV.Length).ToArray();
-                byte[] ct = enc.AsSpan(AesObject.IV.Length, enc.Length - hmac.HashSize / 8).ToArray();
-                byte[] mac = enc.AsSpan(enc.Length - hmac.HashSize / 8).ToArray();
+                byte[] ct = enc.AsSpan(AesObject.IV.Length, enc.Length - Hmac.HashSize / 8).ToArray();
+                byte[] mac = enc.AsSpan(enc.Length - Hmac.HashSize / 8).ToArray();
 
-                if (!hmac.ComputeHash(ct).SequenceEqual(mac))
+                if (!Hmac.ComputeHash(ct).SequenceEqual(mac))
                 {
                     Console.WriteLine("Ciphertext has been tampered with");
                     Console.ReadKey();
@@ -167,17 +167,17 @@ void AesCrypt(bool isEncrypt)
         if (isEncrypt)
         {
             byte[] d = AesObject.EncryptCbc(input, AesObject.IV);
-            byte[] mac = hmac.ComputeHash(d);
+            byte[] mac = Hmac.ComputeHash(d);
             File.WriteAllBytes(outputPath, [.. AesObject.IV.Concat(d).Concat(mac)]);
             Console.WriteLine("Encrypted file written successfully");
         }
         else
         {
             AesObject.IV = input.AsSpan(0, AesObject.IV.Length).ToArray();
-            byte[] ct = input.AsSpan(AesObject.IV.Length, input.Length - hmac.HashSize / 8).ToArray();
-            byte[] mac = input.AsSpan(input.Length - hmac.HashSize / 8).ToArray();
+            byte[] ct = input.AsSpan(AesObject.IV.Length, input.Length - Hmac.HashSize / 8).ToArray();
+            byte[] mac = input.AsSpan(input.Length - Hmac.HashSize / 8).ToArray();
 
-            if (!hmac.ComputeHash(ct).SequenceEqual(mac))
+            if (!Hmac.ComputeHash(ct).SequenceEqual(mac))
             {
                 Console.WriteLine("Ciphertext has been tampered with");
                 Console.ReadKey();
