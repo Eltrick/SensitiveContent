@@ -16,6 +16,23 @@ DirectoryInfo KeyDirectory = new(KEY_FOLDER);
 if (!KeyDirectory.Exists)
     KeyDirectory.Create();
 
+int GetInt(string label, int low = int.MinValue, int high = int.MaxValue)
+{
+    int r;
+    bool valid;
+    do
+    {
+        Console.Write($"{label}: ");
+
+        valid = int.TryParse(Console.ReadLine()!, out r);
+
+        if (!valid || r < low || r > high)
+            Console.WriteLine("Invalid input");
+    } while (!valid || r < low || r > high);
+
+    return r;
+}
+
 void GenerateECDHKey(bool wait = true)
 {
     ECDiffieHellmanObject = ECDiffieHellman.Create();
@@ -126,8 +143,7 @@ void AesCrypt(bool isEncrypt)
     if (isEncrypt)
         AesObject.GenerateIV();
 
-    Console.Write("0=Text, 1=File: ");
-    bool isFile = int.Parse(Console.ReadLine()!) == 1;
+    bool isFile = GetInt("0=Text, 1=File", 0, 1) == 1;
 
     if (!isFile)
     {
@@ -225,8 +241,7 @@ void Menu()
         Console.WriteLine("10. Set custom RSA key");
         Console.WriteLine("0. Exit");
 
-        Console.Write("Option: ");
-        option = int.Parse(Console.ReadLine()!);
+        option = GetInt("Option");
 
         switch (option)
         {
