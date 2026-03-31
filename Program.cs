@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Numerics;
+using System.Security.Cryptography;
 using System.Text;
 
 const string FORMAT = "yyyy-MM-dd";
@@ -15,6 +16,21 @@ ECDiffieHellman ECDiffieHellmanObject;
 DirectoryInfo KeyDirectory = new(KEY_FOLDER);
 if (!KeyDirectory.Exists)
     KeyDirectory.Create();
+
+void OutputKeyVerification()
+{
+    BigInteger r = new(Hmac.ComputeHash(AesObject.Key));
+
+    List<string> parts = [];
+    while (r != 0)
+    {
+        parts.Add((r % 1000000).ToString().PadLeft(6, '0'));
+        r /= 1000000;
+    }
+
+    Console.WriteLine($"Checksum: {string.Join(' ', parts)}");
+    Console.ReadKey();
+}
 
 int GetInt(string label, int low = int.MinValue, int high = int.MaxValue)
 {
@@ -73,7 +89,9 @@ void GenerateAndSetKeyUsingDH()
     ECDiffieHellman otherPk = ECDiffieHellman.Create();
     otherPk.ImportFromPem(File.ReadAllText(pkPath));
 
-    AesObject.SetKey(ECDiffieHellmanObject.DeriveKeyMaterial(otherPk.PublicKey));
+
+    SetAesKey(ECDiffieHellmanObject.DeriveKeyMaterial(otherPk.PublicKey));
+    OutputKeyVerification();
 }
 
 void GenerateRSAKey(bool wait = true)
@@ -127,7 +145,8 @@ void RsaCrypt(bool isEncrypt)
 
         try
         {
-            AesObject.SetKey(RsaObject.Decrypt(data, RsaPadding));
+            SetAesKey(RsaObject.Decrypt(data, RsaPadding));
+            OutputKeyVerification();
             Console.WriteLine("Key unwrap success.");
         }
         catch (CryptographicException)
@@ -146,6 +165,12 @@ void GenerateNewAesKey()
     Console.WriteLine("AES key generation success.");
     Console.ReadKey();
     return;
+}
+
+void SetAesKey(byte[] key)
+{
+    AesObject.SetKey(key);
+    Hmac = new(AesObject.Key);
 }
 
 void AesCrypt(bool isEncrypt)
